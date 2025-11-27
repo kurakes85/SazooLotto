@@ -30,7 +30,7 @@ import kotlin.random.Random
 
 @Composable
 fun SazooLottoApp() {
-    // 일단 기본 오행 색은 화(火)로 고정, 나중에 사주 로직으로 변경 가능
+    // 기본 오행 색은 화(火)로 시작, 실제 표시 색은 SazooLottoScreen 안에서 오행에 따라 바뀜
     val elementColor: Color = FireAccent
 
     Scaffold(
@@ -78,7 +78,7 @@ private fun SazooTopBar() {
 
 @Composable
 fun SazooLottoScreen(
-    elementColor: Color
+    elementColor: Color   // 현재는 기본값 역할만 함
 ) {
     val context = LocalContext.current
 
@@ -94,6 +94,14 @@ fun SazooLottoScreen(
     var fortuneTitle by remember { mutableStateOf("오늘의 사주를 뽑아 보세요") }
     var fortuneBody by remember { mutableStateOf("") }
     var lottoNumbers by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var previousLottoNumbers by remember { mutableStateOf<List<Int>>(emptyList()) }
+
+    // 현재 선택된 오행 타입
+    var elementType by remember { mutableStateOf(ElementType.FIRE) }
+
+    // 오행에 따라 색, 이모지 결정
+    val activeElementColor = elementColorFromType(elementType)
+    val activeElementEmoji = elementEmojiFromType(elementType)
 
     Column(
         modifier = Modifier
@@ -127,7 +135,7 @@ fun SazooLottoScreen(
             },
             gender = gender,
             onGenderChange = { gender = it },
-            elementColor = elementColor,
+            elementColor = activeElementColor,
             zodiacText = zodiacText
         )
 
@@ -136,7 +144,15 @@ fun SazooLottoScreen(
         // 2. 오늘 한 번만 뽑을 수 있는 버튼
         Button(
             onClick = {
-                // 여기서 입력값에 따라 "항상 같은 패턴으로" 운세/번호가 나오도록 설계
+                // 이전 번호를 히스토리로 보관
+                if (lottoNumbers.isNotEmpty()) {
+                    previousLottoNumbers = lottoNumbers
+                }
+
+                // 입력된 생년으로 오행 타입 계산
+                elementType = elementTypeFromYear(birthYear)
+
+                // 입력값에 따라 항상 같은 패턴으로 운세/번호 생성
                 val (newTitle, newBody) = generateFortune(
                     name = name,
                     birthYear = birthYear,
@@ -179,24 +195,38 @@ fun SazooLottoScreen(
         } else {
             Spacer(modifier = Modifier.height(8.dp))
 
+            // 🔥 오늘의 사주 카드 (오행 이모지 포함)
             FortuneCard(
-                elementColor = elementColor,
+                elementColor = activeElementColor,
+                elementEmoji = activeElementEmoji,
                 title = fortuneTitle,
                 body = fortuneBody
             )
 
+            // 🎲 오늘 번호
             LottoCard(
-                elementColor = elementColor,
+                elementColor = activeElementColor,
+                title = "오늘의 로또 번호",
                 numbers = lottoNumbers
             )
+
+            // 📜 이전에 뽑았던 번호 (있을 때만)
+            if (previousLottoNumbers.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                LottoCard(
+                    elementColor = activeElementColor,
+                    title = "이전 로또 번호",
+                    numbers = previousLottoNumbers
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             // 3. 광고 보고 다시 뽑기
             OutlinedButton(
                 onClick = {
-                    // TODO: 나중에 여기에 보상형 광고(Rewarded Ad) 붙이고
-                    // 광고 성공 콜백에서 아래 두 줄을 실제로 호출하면 됨.
+                    // TODO: 보상형 광고 붙이면, 광고 완료 콜백에서
+                    //       아래 두 줄을 실행하면 됨.
                     canDrawToday = true
                     showResult = false
                 },
@@ -205,7 +235,7 @@ fun SazooLottoScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = elementColor
+                    contentColor = activeElementColor
                 )
             ) {
                 Text("광고 보고 다시 뽑기")
@@ -328,6 +358,7 @@ fun UserInputCard(
 @Composable
 fun FortuneCard(
     elementColor: Color,
+    elementEmoji: String,
     title: String,
     body: String
 ) {
@@ -350,7 +381,7 @@ fun FortuneCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "🔥", // TODO: 오행에 따라 💧🌿🪨💰 등으로 변경
+                    text = elementEmoji, // 🔥/💧/🌿/🪨/💰 중 하나
                     fontSize = 20.sp
                 )
                 Text(
@@ -386,6 +417,7 @@ fun FortuneCard(
 @Composable
 fun LottoCard(
     elementColor: Color,
+    title: String,
     numbers: List<Int>
 ) {
     Card(
@@ -402,7 +434,7 @@ fun LottoCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "오늘의 로또 번호",
+                text = title,
                 style = MaterialTheme.typography.titleMedium,
                 color = PencilDark
             )
@@ -449,13 +481,51 @@ private fun getZodiacFromYear(year: Int): String {
     return "${animal}띠"
 }
 
-// ---------------------- 헬퍼: 오행 이름 (간단 버전) -----------------------------
+// ---------------------- 헬퍼: 오행 타입 / 색 / 이모지 -----------------------------
+
+private enum class ElementType { WOOD, FIRE, EARTH, METAL, WATER }
+
+private fun elementTypeFromYear(birthYear: Int?): ElementType {
+    if (birthYear == null) return ElementType.FIRE
+    return when (((birthYear % 5) + 5) % 5) {
+        0 -> ElementType.WOOD
+        1 -> ElementType.FIRE
+        2 -> ElementType.EARTH
+        3 -> ElementType.METAL
+        else -> ElementType.WATER
+    }
+}
+
+private fun elementNameFromType(type: ElementType): String = when (type) {
+    ElementType.WOOD -> "목(木)"
+    ElementType.FIRE -> "화(火)"
+    ElementType.EARTH -> "토(土)"
+    ElementType.METAL -> "금(金)"
+    ElementType.WATER -> "수(水)"
+}
+
+private fun elementColorFromType(type: ElementType): Color = when (type) {
+    ElementType.WOOD -> Color(0xFF66A86E) // 초록
+    ElementType.FIRE -> FireAccent         // 기존 포인트 색
+    ElementType.EARTH -> Color(0xFFB59473) // 흙 느낌 브라운
+    ElementType.METAL -> Color(0xFFB0BEC5) // 회색 메탈
+    ElementType.WATER -> Color(0xFF4FC3F7) // 파랑
+}
+
+private fun elementEmojiFromType(type: ElementType): String = when (type) {
+    ElementType.WOOD -> "🌿"
+    ElementType.FIRE -> "🔥"
+    ElementType.EARTH -> "🪨"
+    ElementType.METAL -> "💰"
+    ElementType.WATER -> "💧"
+}
+
+// ---------------------- 헬퍼: 오행 이름 (사주 문구용) -----------------------------
 
 private fun getElementName(birthYear: Int?): String {
     if (birthYear == null) return "균형 있는"
-    val names = listOf("목(木)", "화(火)", "토(土)", "금(金)", "수(水)")
-    val idx = ((birthYear % 5) + 5) % 5
-    return names[idx]
+    val type = elementTypeFromYear(birthYear)
+    return elementNameFromType(type)
 }
 
 // ---------------------- 헬퍼: 사주 문구 생성 (간단 룰 기반) -----------------------------
