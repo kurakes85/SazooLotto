@@ -10,7 +10,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.sazoolotto"
-        minSdk = 24
+        // 👇 [수정됨] 이 숫자를 24 -> 26으로 변경하여 최신 날짜 기능을 지원하게 했습니다.
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -40,7 +41,12 @@ android {
 }
 
 dependencies {
-
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation("com.google.android.gms:play-services-ads:23.0.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
