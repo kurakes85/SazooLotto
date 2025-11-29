@@ -2,12 +2,6 @@ package com.example.sazoolotto.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import com.sazoo.lotto.ui.theme.FireAccent
-import com.sazoo.lotto.ui.theme.PaperBackground
-import com.sazoo.lotto.ui.theme.PaperSurface
-import com.sazoo.lotto.ui.theme.PencilDark
-import com.sazoo.lotto.ui.theme.PencilLine
-import com.sazoo.lotto.ui.theme.SoftGold
 
 private val LightColors = lightColorScheme(
     primary = SoftGold,
