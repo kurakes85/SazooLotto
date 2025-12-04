@@ -68,7 +68,6 @@ fun LastLottoResultCard(
     }
 }
 
-// [수정됨] 이제 작은 공도 번호에 맞춰 색깔이 나옵니다!
 @Composable
 fun SmallBall(number: Int) {
     val color = getBallColor(number)
@@ -79,30 +78,64 @@ fun SmallBall(number: Int) {
 
 @Composable
 fun BigSajuInputCard(onCalculateClick: (Int, Int, Int, Gender, BirthTimeSection) -> Unit) {
-    var selectedYear by remember { mutableStateOf("1970") }
-    var selectedMonth by remember { mutableStateOf("1") }
-    var selectedDay by remember { mutableStateOf("1") }
+    // [수정] 초기값을 빈 문자열로 설정하여 "선택 안 됨" 상태를 만듦
+    var selectedYear by remember { mutableStateOf("") }
+    var selectedMonth by remember { mutableStateOf("") }
+    var selectedDay by remember { mutableStateOf("") }
+
+    // 성별과 시간은 기본값이 있어도 무방 (보통 모르면 그대로 두니까)
     var selectedGender by remember { mutableStateOf(Gender.MALE) }
     var selectedTime by remember { mutableStateOf(BirthTimeSection.UNKNOWN) }
 
+    // [추가] 필수 입력값이 다 채워졌는지 확인하는 변수
+    val isFormComplete = selectedYear.isNotEmpty() && selectedMonth.isNotEmpty() && selectedDay.isNotEmpty()
+
     val years = (1940..2005).map { it.toString() }.reversed()
     val months = (1..12).map { it.toString() }
-    val maxDay = try { LocalDate.of(selectedYear.toInt(), selectedMonth.toInt(), 1).lengthOfMonth() } catch (e: Exception) { 31 }
+
+    // 날짜 계산 (빈 값일 땐 예외 발생하므로 catch에서 31일로 처리)
+    val maxDay = try {
+        LocalDate.of(selectedYear.toInt(), selectedMonth.toInt(), 1).lengthOfMonth()
+    } catch (e: Exception) { 31 }
     val days = (1..maxDay).map { it.toString() }
-    LaunchedEffect(maxDay) { if (selectedDay.toInt() > maxDay) selectedDay = "1" }
+
+    LaunchedEffect(maxDay) {
+        // 일자가 범위를 벗어나면 초기화 (예: 31일 선택 후 2월로 변경 시)
+        if (selectedDay.isNotEmpty() && selectedDay.toInt() > maxDay) selectedDay = ""
+    }
 
     Card(modifier = Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(6.dp)) {
         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("📅 내 사주 입력하기", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(modifier = Modifier.height(24.dp))
 
-            BigDropdownSelector("년", selectedYear, years) { selectedYear = it }
+            // [수정] 값이 비어있으면 "선택"이라고 표시하도록 처리
+            BigDropdownSelector(
+                label = if (selectedYear.isEmpty()) "" else "년",
+                currentValue = selectedYear.ifEmpty { "년도 선택" },
+                options = years
+            ) { selectedYear = it }
+
             Spacer(modifier = Modifier.height(8.dp))
+
             Row(Modifier.fillMaxWidth()) {
-                BigDropdownSelector("월", selectedMonth, months, modifier = Modifier.weight(1f).padding(end = 4.dp)) { selectedMonth = it }
-                BigDropdownSelector("일", selectedDay, days, modifier = Modifier.weight(1f).padding(start = 4.dp)) { selectedDay = it }
+                BigDropdownSelector(
+                    label = if (selectedMonth.isEmpty()) "" else "월",
+                    currentValue = selectedMonth.ifEmpty { "월 선택" },
+                    options = months,
+                    modifier = Modifier.weight(1f).padding(end = 4.dp)
+                ) { selectedMonth = it }
+
+                BigDropdownSelector(
+                    label = if (selectedDay.isEmpty()) "" else "일",
+                    currentValue = selectedDay.ifEmpty { "일 선택" },
+                    options = days,
+                    modifier = Modifier.weight(1f).padding(start = 4.dp)
+                ) { selectedDay = it }
             }
+
             Spacer(modifier = Modifier.height(16.dp)); Divider(); Spacer(modifier = Modifier.height(16.dp))
+
             Row(Modifier.fillMaxWidth()) {
                 GenderButton(Gender.MALE, selectedGender) { selectedGender = it }; Spacer(modifier = Modifier.width(8.dp))
                 GenderButton(Gender.FEMALE, selectedGender) { selectedGender = it }
@@ -114,7 +147,22 @@ fun BigSajuInputCard(onCalculateClick: (Int, Int, Int, Gender, BirthTimeSection)
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-            Button(onClick = { onCalculateClick(selectedYear.toInt(), selectedMonth.toInt(), selectedDay.toInt(), selectedGender, selectedTime) }, modifier = Modifier.fillMaxWidth().height(64.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3F51B5))) {
+
+            // [수정] enabled 속성에 isFormComplete 연결
+            Button(
+                onClick = {
+                    if (isFormComplete) {
+                        onCalculateClick(selectedYear.toInt(), selectedMonth.toInt(), selectedDay.toInt(), selectedGender, selectedTime)
+                    }
+                },
+                enabled = isFormComplete, // 다 입력해야 활성화됨
+                modifier = Modifier.fillMaxWidth().height(64.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF3F51B5),
+                    disabledContainerColor = Color.LightGray // 비활성화 시 회색
+                )
+            ) {
                 Text("✨ 운세 & 번호 보기", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
         }
@@ -192,7 +240,6 @@ fun BigResultDisplayCard(result: LottoResult, onShareClick: (String) -> Unit) {
     }
 }
 
-// [수정됨] BigLottoBall도 공통 함수 사용
 @Composable
 fun BigLottoBall(number: Int) {
     val color = getBallColor(number)
